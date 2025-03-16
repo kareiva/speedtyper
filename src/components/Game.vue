@@ -2,6 +2,9 @@
   <div class="game-container">
     <div id="game-canvas"></div>
     <div v-if="loading" class="loading">Loading game assets...</div>
+    <div class="controls" v-if="!loading">
+      <button @click="restartGame" class="restart-btn">Restart Game</button>
+    </div>
   </div>
 </template>
 
@@ -14,6 +17,12 @@ export default {
   setup() {
     let game = null
     const loading = ref(true)
+
+    const restartGame = () => {
+      if (game) {
+        game.restart()
+      }
+    }
 
     onMounted(() => {
       // Short delay to ensure DOM is ready
@@ -30,7 +39,8 @@ export default {
     })
 
     return {
-      loading
+      loading,
+      restartGame
     }
   }
 }
@@ -52,5 +62,24 @@ export default {
   transform: translate(-50%, -50%);
   font-size: 24px;
   color: #333;
+}
+
+.controls {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.restart-btn {
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.restart-btn:hover {
+  background-color: #45a049;
 }
 </style> 
