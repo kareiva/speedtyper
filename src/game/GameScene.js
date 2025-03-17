@@ -46,8 +46,11 @@ class GameScene extends Phaser.Scene {
     // Create platforms group
     this.platforms = this.physics.add.staticGroup()
     
+    // Create starting cliff
+    this.createStartingCliff()
+    
     // Create player
-    this.player = this.physics.add.sprite(50, 300, 'player')
+    this.player = this.physics.add.sprite(50, 200, 'player')
     this.player.setBounce(0.2)
     this.player.setCollideWorldBounds(true)
     this.player.setDepth(10)
@@ -70,6 +73,9 @@ class GameScene extends Phaser.Scene {
     
     // Add first word
     this.addNewWord()
+    
+    // Add second word ahead
+    this.addNextWord()
   }
 
   createBackground() {
@@ -111,6 +117,17 @@ class GameScene extends Phaser.Scene {
     }).setScrollFactor(0).setDepth(100)
   }
 
+  createStartingCliff() {
+    // Create a starting cliff platform
+    const cliff = this.platforms.create(50, 300, 'platform')
+    cliff.setScale(1.5, 0.5).refreshBody()
+    cliff.setDepth(1)
+    
+    // Add some visual details to the cliff
+    const cliffTop = this.add.rectangle(50, 285, 150, 10, 0x008800)
+    cliffTop.setDepth(2)
+  }
+
   update(time, delta) {
     // Update timer
     if (this.timeLeft > 0) {
@@ -127,9 +144,28 @@ class GameScene extends Phaser.Scene {
       this.resetPlayerPosition()
     }
     
-    // Check if we need a new word
-    if (this.currentLetterIndex >= this.currentWord.length) {
-      this.addNewWord()
+    // Check if we need a new word - make sure we have letter blocks first
+    if (this.letterBlocks.length > 0 && this.currentLetterIndex >= this.letterBlocks.length) {
+      this.moveToNextWord()
+    }
+    
+    // Check if we need to generate more words ahead
+    if (this.player.x > this.nextWordPosition - 800) {
+      this.addNextWord()
+    }
+    
+    // Debug check - if the word display doesn't match the platforms, fix it
+    if (this.letterBlocks.length > 0) {
+      let platformWord = '';
+      for (let i = 0; i < this.letterBlocks.length; i++) {
+        platformWord += this.letterBlocks[i].letter;
+      }
+      
+      if (this.currentWord !== platformWord) {
+        console.log('Word mismatch detected, fixing...');
+        this.currentWord = platformWord;
+        this.wordText.setText(`Word: ${this.currentWord}`);
+      }
     }
   }
 
@@ -139,10 +175,16 @@ class GameScene extends Phaser.Scene {
     
     const key = event.key.toLowerCase()
     
+    // Verify we have letter blocks and are within bounds
+    if (this.letterBlocks.length === 0 || this.currentLetterIndex >= this.letterBlocks.length) {
+      return;
+    }
+    
+    // Get the expected letter from the current letter block
+    const expectedLetter = this.letterBlocks[this.currentLetterIndex].letter;
+    
     // Check if the pressed key matches the current letter
-    if (this.currentLetterIndex < this.currentWord.length && 
-        key === this.currentWord[this.currentLetterIndex]) {
-      
+    if (key === expectedLetter) {
       // Move player to the next letter block
       this.movePlayerToBlock(this.currentLetterIndex)
       
@@ -157,7 +199,7 @@ class GameScene extends Phaser.Scene {
       this.scoreText.setText(`Score: ${this.score}`)
       
       // Check if word is completed
-      if (this.currentLetterIndex >= this.currentWord.length) {
+      if (this.currentLetterIndex >= this.letterBlocks.length) {
         // Add bonus points for completing a word
         this.score += 5
         this.scoreText.setText(`Score: ${this.score}`)
@@ -216,28 +258,37 @@ class GameScene extends Phaser.Scene {
   }
 
   addNewWord() {
+    // Clear previous letter blocks and platforms
+    this.letterBlocks.forEach(block => {
+      if (block.platform) block.platform.destroy();
+      if (block.letterText) block.letterText.destroy();
+    });
+    this.letterBlocks = [];
+    
     // Get a random word
-    this.currentWord = this.getRandomWord()
-    this.currentLetterIndex = 0
+    const newWord = this.getRandomWord();
+    this.currentWord = newWord;
+    this.currentLetterIndex = 0;
     
     // Update word display
-    this.wordText.setText(`Word: ${this.currentWord}`)
-    
-    // Clear previous letter blocks
-    this.letterBlocks = []
+    this.wordText.setText(`Word: ${this.currentWord}`);
     
     // Create blocks for each letter
-    const blockWidth = 60
-    const blockSpacing = 20
-    const blockY = 300
+    const blockWidth = 60;
+    const blockSpacing = 20;
+    const blockY = 300;
     
+    // Position the first word after the starting cliff
+    this.nextWordPosition = 150;
+    
+    // Create a platform and letter for each character in the word
     for (let i = 0; i < this.currentWord.length; i++) {
-      const x = this.nextWordPosition + i * (blockWidth + blockSpacing)
+      const x = this.nextWordPosition + i * (blockWidth + blockSpacing);
       
       // Create platform
-      const platform = this.platforms.create(x, blockY, 'platform')
-      platform.setScale(0.5, 0.2).refreshBody()
-      platform.setDepth(1)
+      const platform = this.platforms.create(x, blockY, 'platform');
+      platform.setScale(0.5, 0.2).refreshBody();
+      platform.setDepth(1);
       
       // Create letter text
       const letterText = this.add.text(x, blockY - 20, this.currentWord[i], {
@@ -246,27 +297,145 @@ class GameScene extends Phaser.Scene {
         fill: '#ffffff',
         backgroundColor: '#000000',
         padding: { x: 5, y: 5 }
-      })
-      letterText.setOrigin(0.5)
-      letterText.setDepth(2)
+      });
+      letterText.setOrigin(0.5);
+      letterText.setDepth(2);
       
       // Store reference to the block and its letter
       this.letterBlocks.push({
         x: x,
         y: blockY,
         platform: platform,
-        letterText: letterText
-      })
+        letterText: letterText,
+        letter: this.currentWord[i]  // Store the actual letter for verification
+      });
     }
     
-    // Position player at the first block if this is the first word
-    if (this.nextWordPosition === 100) {
-      this.player.x = this.letterBlocks[0].x
-      this.player.y = this.letterBlocks[0].y - 40
+    // Position player at the starting cliff
+    this.player.x = 50;
+    this.player.y = 200;
+    
+    // Update next word position for future words
+    this.nextWordPosition += this.currentWord.length * (blockWidth + blockSpacing) + 150; // Bigger gap between words
+  }
+
+  addNextWord() {
+    // Get a random word
+    const nextWord = this.getRandomWord();
+    
+    // Create blocks for each letter
+    const blockWidth = 60;
+    const blockSpacing = 20;
+    const blockY = 300;
+    
+    // Create a platform and letter for each character in the word
+    for (let i = 0; i < nextWord.length; i++) {
+      const x = this.nextWordPosition + i * (blockWidth + blockSpacing);
+      
+      // Create platform
+      const platform = this.platforms.create(x, blockY, 'platform');
+      platform.setScale(0.5, 0.2).refreshBody();
+      platform.setDepth(1);
+      
+      // Create letter text
+      const letterText = this.add.text(x, blockY - 20, nextWord[i], {
+        fontFamily: 'Arial',
+        fontSize: '32px',
+        fill: '#ffffff',
+        backgroundColor: '#000000',
+        padding: { x: 5, y: 5 }
+      });
+      letterText.setOrigin(0.5);
+      letterText.setDepth(2);
     }
     
-    // Update next word position
-    this.nextWordPosition += this.currentWord.length * (blockWidth + blockSpacing) + 100
+    // Update next word position for future words
+    this.nextWordPosition += nextWord.length * (blockWidth + blockSpacing) + 150; // Bigger gap between words
+    
+    // Extend world bounds if needed
+    if (this.nextWordPosition > this.physics.world.bounds.width - 1000) {
+      const newWidth = this.physics.world.bounds.width + 5000;
+      this.physics.world.setBounds(0, 0, newWidth, 600);
+      this.cameras.main.setBounds(0, 0, newWidth, 600);
+      
+      // Extend the background
+      this.extendBackground(this.physics.world.bounds.width - 5000, newWidth);
+    }
+  }
+
+  moveToNextWord() {
+    // Find the next word's starting position
+    const blockWidth = 60;
+    const blockSpacing = 20;
+    
+    // Clear current letter blocks (but don't destroy platforms)
+    const oldLetterBlocks = this.letterBlocks;
+    this.letterBlocks = [];
+    
+    // Find the next word's platforms and letters
+    let nextWordStartX = oldLetterBlocks[oldLetterBlocks.length - 1].x + blockWidth + 150; // Start looking after the current word
+    let foundNextWord = false;
+    let nextWordLetters = [];
+    
+    // Look through all platforms to find the next word
+    this.platforms.getChildren().forEach(platform => {
+      // Skip platforms that are part of the current word
+      let isCurrentWordPlatform = false;
+      for (let i = 0; i < oldLetterBlocks.length; i++) {
+        if (oldLetterBlocks[i].platform === platform) {
+          isCurrentWordPlatform = true;
+          break;
+        }
+      }
+      
+      if (!isCurrentWordPlatform && platform.x >= nextWordStartX) {
+        // Find the letter text at this position
+        let letterText = null;
+        let letter = '';
+        
+        this.children.list.forEach(child => {
+          if (child.type === 'Text' && 
+              Math.abs(child.x - platform.x) < 5 && 
+              Math.abs(child.y - (platform.y - 20)) < 5) {
+            letterText = child;
+            letter = child.text.toLowerCase();
+          }
+        });
+        
+        if (letterText) {
+          // Add to the next word letters
+          nextWordLetters.push({
+            x: platform.x,
+            y: platform.y,
+            platform: platform,
+            letterText: letterText,
+            letter: letter
+          });
+          foundNextWord = true;
+        }
+      }
+    });
+    
+    // Sort the letters by x position
+    nextWordLetters.sort((a, b) => a.x - b.x);
+    
+    // Set the new word
+    if (foundNextWord) {
+      this.letterBlocks = nextWordLetters;
+      
+      // Build the new current word
+      let newWord = '';
+      for (let i = 0; i < this.letterBlocks.length; i++) {
+        newWord += this.letterBlocks[i].letter;
+      }
+      
+      this.currentWord = newWord;
+      this.currentLetterIndex = 0;
+      this.wordText.setText(`Word: ${this.currentWord}`);
+    } else {
+      // If no next word found, generate a new one
+      this.addNewWord();
+    }
   }
 
   getRandomWord() {
@@ -303,6 +472,23 @@ class GameScene extends Phaser.Scene {
     
     // Emit game over event
     this.events.emit('gameOver', { score: this.score })
+  }
+
+  // Add a method to extend the background
+  extendBackground(startX, endX) {
+    // Create a simple blue gradient background extension
+    const bg = this.add.graphics()
+    bg.fillGradientStyle(0x0000ff, 0x0000ff, 0x000066, 0x000066, 1)
+    bg.fillRect(startX, 0, endX - startX, 600)
+    
+    // Add some stars to the new area
+    for (let i = 0; i < 50; i++) {
+      const x = Phaser.Math.Between(startX, endX)
+      const y = Phaser.Math.Between(0, 600)
+      const size = Phaser.Math.Between(1, 3)
+      const star = this.add.circle(x, y, size, 0xffffff)
+      star.setAlpha(Phaser.Math.FloatBetween(0.3, 1))
+    }
   }
 }
 
