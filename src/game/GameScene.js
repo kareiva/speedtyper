@@ -13,32 +13,60 @@ class GameScene extends Phaser.Scene {
     this.player = null
     this.platforms = null
     this.letterBlocks = []
+    this.nextWordBlocks = [] // Track the next word's blocks separately
     
     // Game metrics
     this.score = 0
     this.timeLeft = 60
     
-    // Word list
-    this.words = [
-      'hello', 'world', 'javascript', 'phaser', 'game', 'development',
-      'typing', 'speed', 'challenge', 'keyboard', 'player', 'score',
-      'time', 'letter', 'word', 'block', 'jump', 'move', 'complete',
-      'elephant', 'banana', 'computer', 'programming', 'algorithm'
-    ]
+    // Language settings - get from URL parameter if available
+    this.currentLanguage = this.getLanguageFromURL()
+    
+    // Word lists
+    this.wordLists = {
+      english: [],
+      lithuanian: []
+    }
+  }
+
+  // Get language from URL parameter
+  getLanguageFromURL() {
+    // Check if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const langParam = urlParams.get('lang');
+      
+      // If lang parameter exists and is valid, use it
+      if (langParam && (langParam === 'english' || langParam === 'lithuanian')) {
+        console.log(`Language set from URL: ${langParam}`);
+        return langParam;
+      }
+    }
+    
+    // Default to English if no valid parameter
+    return 'english';
   }
 
   preload() {
     // Load game assets
     this.load.image('player', 'assets/player.png')
     this.load.image('platform', 'assets/platform.png')
+    
+    // Load word lists
+    this.load.text('english_words', 'assets/english.txt')
+    this.load.text('lithuanian_words', 'assets/lithuanian.txt')
   }
 
   create() {
+    // Load word lists from files
+    this.loadWordLists()
+    
     // Initialize game state
     this.score = 0
     this.timeLeft = 60
     this.nextWordPosition = 100
     this.letterBlocks = []
+    this.nextWordBlocks = []
     
     // Create background
     this.createBackground()
@@ -73,9 +101,34 @@ class GameScene extends Phaser.Scene {
     
     // Add first word
     this.addNewWord()
+  }
+
+  loadWordLists() {
+    // Load English words
+    if (this.cache.text.has('english_words')) {
+      const englishText = this.cache.text.get('english_words');
+      this.wordLists.english = englishText.split('\n')
+        .map(word => word.trim())
+        .filter(word => word.length > 0);
+      console.log(`Loaded ${this.wordLists.english.length} English words`);
+    } else {
+      console.error('English word list not found!');
+      // Fallback words
+      this.wordLists.english = ['error', 'loading', 'failed'];
+    }
     
-    // Add second word ahead
-    this.addNextWord()
+    // Load Lithuanian words
+    if (this.cache.text.has('lithuanian_words')) {
+      const lithuanianText = this.cache.text.get('lithuanian_words');
+      this.wordLists.lithuanian = lithuanianText.split('\n')
+        .map(word => word.trim())
+        .filter(word => word.length > 0);
+      console.log(`Loaded ${this.wordLists.lithuanian.length} Lithuanian words`);
+    } else {
+      console.error('Lithuanian word list not found!');
+      // Fallback words
+      this.wordLists.lithuanian = ['klaida', 'nepavyko', 'ikelti'];
+    }
   }
 
   createBackground() {
@@ -115,6 +168,25 @@ class GameScene extends Phaser.Scene {
       fontSize: '24px',
       fill: '#ffffff'
     }).setScrollFactor(0).setDepth(100)
+    
+    // Create language toggle button
+    const languageButton = this.add.text(700, 20, 'Language', {
+      fontFamily: 'Arial',
+      fontSize: '20px',
+      fill: '#ffffff',
+      backgroundColor: '#4CAF50',
+      padding: { x: 10, y: 5 }
+    }).setScrollFactor(0).setDepth(100).setInteractive();
+    
+    // Update button text based on current language
+    languageButton.setText(`Language: ${this.currentLanguage === 'english' ? 'English' : 'Lithuanian'}`);
+    
+    // Add click handler for language toggle via URL
+    languageButton.on('pointerdown', () => {
+      this.switchLanguageViaURL();
+    });
+    
+    this.languageButton = languageButton;
   }
 
   createStartingCliff() {
@@ -153,20 +225,6 @@ class GameScene extends Phaser.Scene {
     if (this.player.x > this.nextWordPosition - 800) {
       this.addNextWord()
     }
-    
-    // Debug check - if the word display doesn't match the platforms, fix it
-    if (this.letterBlocks.length > 0) {
-      let platformWord = '';
-      for (let i = 0; i < this.letterBlocks.length; i++) {
-        platformWord += this.letterBlocks[i].letter;
-      }
-      
-      if (this.currentWord !== platformWord) {
-        console.log('Word mismatch detected, fixing...');
-        this.currentWord = platformWord;
-        this.wordText.setText(`Word: ${this.currentWord}`);
-      }
-    }
   }
 
   handleKeyDown(event) {
@@ -174,6 +232,12 @@ class GameScene extends Phaser.Scene {
     if (this.timeLeft <= 0) return
     
     const key = event.key.toLowerCase()
+    
+    // Language toggle with L key - now uses URL parameter
+    if (key === 'l' && event.ctrlKey) {
+      this.switchLanguageViaURL();
+      return;
+    }
     
     // Verify we have letter blocks and are within bounds
     if (this.letterBlocks.length === 0 || this.currentLetterIndex >= this.letterBlocks.length) {
@@ -310,13 +374,59 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  moveToNextWord() {
+    // The next word becomes the current word
+    if (this.nextWordBlocks.length > 0) {
+      // Clear current letter blocks array
+      this.letterBlocks.forEach(block => {
+        // Don't destroy the platforms or text, they stay visible
+        // Just remove them from our tracking array
+      });
+      
+      // The next word blocks become the current word blocks
+      this.letterBlocks = this.nextWordBlocks;
+      this.nextWordBlocks = [];
+      
+      // Update current word
+      this.currentWord = '';
+      for (let i = 0; i < this.letterBlocks.length; i++) {
+        this.currentWord += this.letterBlocks[i].letter;
+      }
+      
+      // Reset letter index
+      this.currentLetterIndex = 0;
+      
+      // Update word display
+      this.wordText.setText(`Word: ${this.currentWord}`);
+      
+      // Position player at the first letter of the new word
+      if (this.letterBlocks.length > 0) {
+        this.player.x = this.letterBlocks[0].x;
+        this.player.y = this.letterBlocks[0].y - 40;
+      }
+      
+      // Generate a new "next word"
+      this.addNextWord();
+    } else {
+      // If there's no next word yet, create one
+      this.addNextWord();
+      this.moveToNextWord();
+    }
+  }
+
   addNewWord() {
-    // Clear previous letter blocks and platforms
+    // Clear ALL previous platforms and letter blocks to avoid any leftover blocks
+    this.platforms.clear(true, true);
+    
+    // Recreate the starting cliff since we cleared all platforms
+    this.createStartingCliff();
+    
+    // Clear letter blocks array
     this.letterBlocks.forEach(block => {
-      if (block.platform) block.platform.destroy();
       if (block.letterText) block.letterText.destroy();
     });
     this.letterBlocks = [];
+    this.nextWordBlocks = []; // Clear next word blocks too
     
     // Get a random word
     const newWord = this.getRandomWord();
@@ -370,16 +480,22 @@ class GameScene extends Phaser.Scene {
     
     // Update next word position for future words
     this.nextWordPosition += this.currentWord.length * (blockWidth + blockSpacing) + 150; // Bigger gap between words
+    
+    // Add the next word ahead
+    this.addNextWord();
   }
 
   addNextWord() {
-    // Get a random word
+    // Get a random word for the next word
     const nextWord = this.getRandomWord();
     
     // Create blocks for each letter
     const blockWidth = 60;
     const blockSpacing = 20;
     const blockY = 300;
+    
+    // Store the starting position of this word
+    const wordStartX = this.nextWordPosition;
     
     // Create a platform and letter for each character in the word
     for (let i = 0; i < nextWord.length; i++) {
@@ -400,6 +516,15 @@ class GameScene extends Phaser.Scene {
       });
       letterText.setOrigin(0.5);
       letterText.setDepth(2);
+      
+      // Store reference to the block and its letter in the nextWordBlocks array
+      this.nextWordBlocks.push({
+        x: x,
+        y: blockY,
+        platform: platform,
+        letterText: letterText,
+        letter: nextWord[i]
+      });
     }
     
     // Update next word position for future words
@@ -416,84 +541,25 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  moveToNextWord() {
-    // Find the next word's starting position
-    const blockWidth = 60;
-    const blockSpacing = 20;
-    
-    // Clear current letter blocks (but don't destroy platforms)
-    const oldLetterBlocks = this.letterBlocks;
-    this.letterBlocks = [];
-    
-    // Find the next word's platforms and letters
-    let nextWordStartX = oldLetterBlocks[oldLetterBlocks.length - 1].x + blockWidth + 150; // Start looking after the current word
-    let foundNextWord = false;
-    let nextWordLetters = [];
-    
-    // Look through all platforms to find the next word
-    this.platforms.getChildren().forEach(platform => {
-      // Skip platforms that are part of the current word
-      let isCurrentWordPlatform = false;
-      for (let i = 0; i < oldLetterBlocks.length; i++) {
-        if (oldLetterBlocks[i].platform === platform) {
-          isCurrentWordPlatform = true;
-          break;
-        }
-      }
-      
-      if (!isCurrentWordPlatform && platform.x >= nextWordStartX) {
-        // Find the letter text at this position
-        let letterText = null;
-        let letter = '';
-        
-        this.children.list.forEach(child => {
-          if (child.type === 'Text' && 
-              Math.abs(child.x - platform.x) < 5 && 
-              Math.abs(child.y - (platform.y - 20)) < 5) {
-            letterText = child;
-            letter = child.text.toLowerCase();
-          }
-        });
-        
-        if (letterText) {
-          // Add to the next word letters
-          nextWordLetters.push({
-            x: platform.x,
-            y: platform.y,
-            platform: platform,
-            letterText: letterText,
-            letter: letter
-          });
-          foundNextWord = true;
-        }
-      }
-    });
-    
-    // Sort the letters by x position
-    nextWordLetters.sort((a, b) => a.x - b.x);
-    
-    // Set the new word
-    if (foundNextWord) {
-      this.letterBlocks = nextWordLetters;
-      
-      // Build the new current word
-      let newWord = '';
-      for (let i = 0; i < this.letterBlocks.length; i++) {
-        newWord += this.letterBlocks[i].letter;
-      }
-      
-      this.currentWord = newWord;
-      this.currentLetterIndex = 0;
-      this.wordText.setText(`Word: ${this.currentWord}`);
-    } else {
-      // If no next word found, generate a new one
-      this.addNewWord();
-    }
-  }
-
   getRandomWord() {
-    const randomIndex = Math.floor(Math.random() * this.words.length)
-    return this.words[randomIndex]
+    // Get a random word from the current language's word list
+    const wordList = this.wordLists[this.currentLanguage];
+    
+    // Check if the word list is empty
+    if (!wordList || wordList.length === 0) {
+      console.error(`Word list for ${this.currentLanguage} is empty!`);
+      return this.currentLanguage === 'english' ? 'error' : 'klaida';
+    }
+    
+    const randomIndex = Math.floor(Math.random() * wordList.length);
+    const word = wordList[randomIndex];
+    
+    // Ensure we have a valid word (not empty or undefined)
+    if (!word || word.length === 0) {
+      return this.currentLanguage === 'english' ? 'error' : 'klaida';
+    }
+    
+    return word;
   }
 
   endGame() {
@@ -542,6 +608,56 @@ class GameScene extends Phaser.Scene {
       const star = this.add.circle(x, y, size, 0xffffff)
       star.setAlpha(Phaser.Math.FloatBetween(0.3, 1))
     }
+  }
+
+  // Switch language by reloading the page with a new URL parameter
+  switchLanguageViaURL() {
+    // Check if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      // Get the new language (opposite of current)
+      const newLang = this.currentLanguage === 'english' ? 'lithuanian' : 'english';
+      
+      // Create URL with the new language parameter
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', newLang);
+      
+      // Reload the page with the new URL
+      window.location.href = url.toString();
+    }
+  }
+
+  restartGame() {
+    // Clear all existing platforms and letter blocks
+    this.platforms.clear(true, true);
+    this.letterBlocks.forEach(block => {
+      if (block.letterText) block.letterText.destroy();
+    });
+    this.letterBlocks = [];
+    this.nextWordBlocks = [];
+    
+    // Reset game state
+    this.score = 0;
+    this.timeLeft = 60;
+    this.nextWordPosition = 100;
+    this.currentLetterIndex = 0;
+    
+    // Update UI
+    this.scoreText.setText('Score: 0');
+    this.timerText.setText('Time: 60');
+    
+    // Recreate the starting cliff
+    this.createStartingCliff();
+    
+    // Reset player position
+    this.player.x = 50;
+    this.player.y = 200;
+    this.player.setVelocity(0, 0);
+    
+    // Add first word
+    this.addNewWord();
+    
+    // Re-enable input
+    this.input.keyboard.on('keydown', this.handleKeyDown, this);
   }
 }
 
