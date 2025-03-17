@@ -14,6 +14,7 @@ class GameScene extends Phaser.Scene {
     this.platforms = null
     this.letterBlocks = []
     this.nextWordBlocks = [] // Track the next word's blocks separately
+    this.dancingLetter = null // Reference to the dancing letter
     
     // Game metrics
     this.score = 0
@@ -44,7 +45,7 @@ class GameScene extends Phaser.Scene {
     }
     
     // Default to English if no valid parameter
-    return 'english';
+    return 'lithuanian';
   }
 
   preload() {
@@ -225,6 +226,20 @@ class GameScene extends Phaser.Scene {
     if (this.player.x > this.nextWordPosition - 800) {
       this.addNextWord()
     }
+    
+    // Update the dancing letter position if it exists
+    if (this.dancingLetter) {
+      // Make the dancing letter follow the camera with a slight offset
+      this.dancingLetter.x = this.cameras.main.scrollX + 400 + Math.sin(time / 300) * 50;
+      this.dancingLetter.y = 150 + Math.cos(time / 500) * 30;
+      
+      // Add a slight rotation for more dynamic effect
+      this.dancingLetter.angle = Math.sin(time / 400) * 15;
+      
+      // Pulse the scale for a "dancing" effect
+      const scale = 1 + 0.2 * Math.sin(time / 200);
+      this.dancingLetter.setScale(scale);
+    }
   }
 
   handleKeyDown(event) {
@@ -267,6 +282,9 @@ class GameScene extends Phaser.Scene {
         // Add bonus points for completing a word
         this.score += 5
         this.scoreText.setText(`Score: ${this.score}`)
+        
+        // Remove dancing letter when word is completed
+        this.removeDancingLetter();
       }
     }
   }
@@ -358,6 +376,14 @@ class GameScene extends Phaser.Scene {
         backgroundColor: '#4CAF50',
         padding: { x: 5, y: 5 }
       })
+      
+      // Remove the current dancing letter since this letter is now typed
+      this.removeDancingLetter();
+      
+      // If there's a next letter to type, create a dancing letter for it
+      if (index + 1 < this.letterBlocks.length) {
+        this.createDancingLetter(this.letterBlocks[index + 1].letter);
+      }
     }
   }
 
@@ -403,6 +429,9 @@ class GameScene extends Phaser.Scene {
       if (this.letterBlocks.length > 0) {
         this.player.x = this.letterBlocks[0].x;
         this.player.y = this.letterBlocks[0].y - 40;
+        
+        // Create a dancing letter for the first letter of the new word
+        this.createDancingLetter(this.letterBlocks[0].letter);
       }
       
       // Generate a new "next word"
@@ -427,6 +456,9 @@ class GameScene extends Phaser.Scene {
     });
     this.letterBlocks = [];
     this.nextWordBlocks = []; // Clear next word blocks too
+    
+    // Remove any existing dancing letter
+    this.removeDancingLetter();
     
     // Get a random word
     const newWord = this.getRandomWord();
@@ -477,6 +509,11 @@ class GameScene extends Phaser.Scene {
     // Position player at the starting cliff
     this.player.x = 50;
     this.player.y = 200;
+    
+    // Create a dancing letter for the first letter to type
+    if (this.letterBlocks.length > 0) {
+      this.createDancingLetter(this.letterBlocks[0].letter);
+    }
     
     // Update next word position for future words
     this.nextWordPosition += this.currentWord.length * (blockWidth + blockSpacing) + 150; // Bigger gap between words
@@ -566,6 +603,9 @@ class GameScene extends Phaser.Scene {
     // Stop handling input
     this.input.keyboard.removeAllListeners()
     
+    // Remove dancing letter
+    this.removeDancingLetter();
+    
     // Display game over message
     const gameOverText = this.add.text(
       this.cameras.main.width / 2,
@@ -635,6 +675,9 @@ class GameScene extends Phaser.Scene {
     this.letterBlocks = [];
     this.nextWordBlocks = [];
     
+    // Remove dancing letter
+    this.removeDancingLetter();
+    
     // Reset game state
     this.score = 0;
     this.timeLeft = 60;
@@ -658,6 +701,51 @@ class GameScene extends Phaser.Scene {
     
     // Re-enable input
     this.input.keyboard.on('keydown', this.handleKeyDown, this);
+  }
+
+  // Create a dancing letter in the background
+  createDancingLetter(letter) {
+    // Remove any existing dancing letter first
+    this.removeDancingLetter();
+    
+    // Create a new dancing letter text object
+    this.dancingLetter = this.add.text(
+      this.cameras.main.scrollX + 400, // Position in the middle of the screen horizontally
+      150, // Position near the top of the screen
+      letter.toUpperCase(), // Make it uppercase for better visibility
+      {
+        fontFamily: 'Arial',
+        fontSize: '120px',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 8,
+        shadow: {
+          offsetX: 2,
+          offsetY: 2,
+          color: '#000',
+          blur: 5,
+          stroke: true,
+          fill: true
+        }
+      }
+    );
+    
+    // Set the origin to center for better rotation
+    this.dancingLetter.setOrigin(0.5);
+    
+    // Set a high depth to ensure it's visible but behind UI elements
+    this.dancingLetter.setDepth(50);
+    
+    // Set alpha to semi-transparent so it doesn't distract too much
+    this.dancingLetter.setAlpha(0.6);
+  }
+
+  // Remove the dancing letter
+  removeDancingLetter() {
+    if (this.dancingLetter) {
+      this.dancingLetter.destroy();
+      this.dancingLetter = null;
+    }
   }
 }
 
