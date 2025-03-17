@@ -3,11 +3,15 @@ import GameScene from './GameScene'
 
 class TypingGame {
   constructor(containerId) {
+    this.containerId = containerId;
+    this.game = null;
     this.config = {
       type: Phaser.AUTO,
-      parent: containerId,
       width: 800,
       height: 600,
+      parent: containerId,
+      disableContextMenu: true,
+      pixelArt: false,
       physics: {
         default: 'arcade',
         arcade: {
@@ -16,54 +20,43 @@ class TypingGame {
         }
       },
       scene: [GameScene]
-    }
-    
-    this.game = new Phaser.Game(this.config)
-    
-    // Store reference to the game instance
-    this.gameInstance = this.game
-    
-    // Add event listener for when the game is about to be destroyed
-    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this))
+    };
   }
   
-  handleBeforeUnload() {
-    // This ensures assets are properly cleaned up before the page unloads
-    if (this.gameInstance) {
-      // Get the current scene
-      const scene = this.gameInstance.scene.getScene('GameScene')
-      if (scene) {
-        // Clean up any resources that might be causing issues
-        scene.input.keyboard.off('keydown')
-      }
-    }
-  }
-
-  destroy() {
-    // Remove event listener
-    window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this))
+  init() {
+    // Create the game instance
+    this.game = new Phaser.Game(this.config);
     
-    if (this.game) {
-      // Properly clean up resources before destroying
-      const scene = this.game.scene.getScene('GameScene')
-      if (scene) {
-        // Clean up any resources that might be causing issues
-        scene.input.keyboard.off('keydown')
-      }
-      
-      this.game.destroy(true)
-      this.game = null
-    }
+    // Add event listener for before unload to clean up resources
+    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    
+    return this.game;
   }
   
   restart() {
-    // Restart the game scene
-    if (this.game) {
-      const scene = this.game.scene.getScene('GameScene')
-      if (scene && scene.restartGame) {
-        scene.restartGame()
-      }
+    // Get the current scene
+    const scene = this.game.scene.getScene('GameScene');
+    
+    // If the scene exists, restart it
+    if (scene) {
+      scene.restartGame();
     }
+  }
+  
+  destroy() {
+    // Remove event listener
+    window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    
+    // Destroy the game instance
+    if (this.game) {
+      this.game.destroy(true);
+      this.game = null;
+    }
+  }
+  
+  handleBeforeUnload() {
+    // Clean up resources before the page unloads
+    this.destroy();
   }
 }
 

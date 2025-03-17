@@ -6,6 +6,7 @@ class UIManager {
     this.scoreText = null;
     this.timeText = null;
     this.wordText = null;
+    this.highScoreText = null;
     this.uiLayer = null;
     this.gameOverText = null;
   }
@@ -16,6 +17,7 @@ class UIManager {
       this.scoreText.setVisible(true);
       this.timeText.setVisible(true);
       this.wordText.setVisible(true);
+      if (this.highScoreText) this.highScoreText.setVisible(true);
       return;
     }
     
@@ -36,6 +38,16 @@ class UIManager {
     // Create time display
     this.timeText = this.scene.add.text(16, 60, 'Time: 60', { 
       fontSize: '32px', 
+      fill: '#000',
+      backgroundColor: '#ffffff80',
+      padding: { x: 10, y: 5 }
+    })
+    .setScrollFactor(0) // Fixed to camera
+    .setDepth(100);
+    
+    // Create high score display
+    this.highScoreText = this.scene.add.text(16, 104, 'High Score: 0', { 
+      fontSize: '24px', 
       fill: '#000',
       backgroundColor: '#ffffff80',
       padding: { x: 10, y: 5 }
@@ -64,6 +76,12 @@ class UIManager {
   updateTime(timeLeft) {
     if (this.timeText) {
       this.timeText.setText('Time: ' + timeLeft);
+    }
+  }
+  
+  updateHighScore(highScore) {
+    if (this.highScoreText) {
+      this.highScoreText.setText('High Score: ' + highScore);
     }
   }
 
@@ -103,6 +121,7 @@ class UIManager {
     if (this.scoreText) this.scoreText.setVisible(true);
     if (this.timeText) this.timeText.setVisible(true);
     if (this.wordText) this.wordText.setVisible(true);
+    if (this.highScoreText) this.highScoreText.setVisible(true);
   }
 }
 
