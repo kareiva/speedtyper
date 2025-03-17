@@ -42,11 +42,30 @@ function createKeydownHandler() {
   window.addEventListener('keydown', keydownHandler);
 }
 
+// Function to safely get the game scene
+function getGameScene() {
+  if (!game.value) return null;
+  
+  try {
+    // Make sure the scene manager and scenes array exist
+    if (game.value.scene && Array.isArray(game.value.scene.scenes) && game.value.scene.scenes.length > 0) {
+      return game.value.scene.scenes[0];
+    }
+  } catch (error) {
+    console.error('Error accessing game scene:', error);
+  }
+  
+  return null;
+}
+
 // Function to restart the game
 function restartGame() {
-  if (game.value && game.value.scene.scenes[0]) {
+  const gameScene = getGameScene();
+  if (gameScene) {
     gameOver.value = false;
-    game.value.scene.scenes[0].restartGame();
+    gameScene.restartGame();
+  } else {
+    console.warn('Game scene not ready for restart');
   }
 }
 
@@ -69,14 +88,33 @@ onMounted(() => {
       scene: [GameScene]
     };
     
-    game.value = new Phaser.Game(config);
-    
-    // Listen for game over event
-    game.value.scene.scenes[0].events.on('gameOver', (data) => {
-      score.value = data.score;
-      gameOver.value = true;
-      createKeydownHandler();
-    });
+    try {
+      game.value = new Phaser.Game(config);
+      
+      // Wait for the scene to be created and ready
+      const setupGameEvents = () => {
+        const gameScene = getGameScene();
+        if (gameScene) {
+          // Listen for game over event
+          gameScene.events.on('gameOver', (data) => {
+            score.value = data.score;
+            gameOver.value = true;
+            createKeydownHandler();
+          });
+          
+          // Set up the keydown handler after the game is initialized
+          createKeydownHandler();
+        } else {
+          // If scene isn't ready yet, try again in a short while
+          setTimeout(setupGameEvents, 100);
+        }
+      };
+      
+      // Start the setup process
+      setupGameEvents();
+    } catch (error) {
+      console.error('Error initializing Phaser game:', error);
+    }
   } else {
     console.error('Game container not found');
   }
