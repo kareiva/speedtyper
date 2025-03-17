@@ -214,18 +214,71 @@ class GameScene extends Phaser.Scene {
       // Stop any existing tweens
       this.tweens.killTweensOf(this.player)
       
-      // Move player to the block
+      // Calculate jump parameters
+      const startX = this.player.x
+      const startY = this.player.y
+      const endX = block.x
+      const endY = block.y - 40 // Position player on top of the block
+      const distance = Math.abs(endX - startX)
+      
+      // Determine jump height based on distance
+      const jumpHeight = Math.min(150, Math.max(80, distance * 0.4))
+      
+      // Calculate duration based on distance (faster for longer jumps)
+      const duration = Math.min(600, Math.max(200, distance * 0.8))
+      
+      // Create a simple arc jump using a single tween with a custom update function
       this.tweens.add({
         targets: this.player,
-        x: block.x,
-        y: block.y - 40, // Position player on top of the block
-        duration: 150,
-        ease: 'Power1',
+        x: endX,
+        // We don't set y directly, we'll handle it in the update function
+        duration: duration,
+        ease: 'Sine.Out',
+        onUpdate: (tween) => {
+          // Calculate progress (0 to 1)
+          const progress = tween.progress
+          
+          // Create an arc effect by modifying the y position based on progress
+          // At progress = 0.5, the player should be at the highest point
+          const heightFactor = 1 - (2 * Math.abs(progress - 0.5))
+          this.player.y = startY - (jumpHeight * heightFactor) + 
+                          (progress * (endY - startY))
+        },
         onComplete: () => {
+          // Ensure final position is correct
+          this.player.x = endX
+          this.player.y = endY
+          
           // Reset velocity to prevent falling
           this.player.setVelocityY(0)
+          
+          // Add a small bounce effect at the end
+          this.tweens.add({
+            targets: this.player,
+            y: endY + 10,
+            duration: 100,
+            yoyo: true,
+            ease: 'Quad.Out'
+          })
         }
       })
+      
+      // Add a rotation effect for longer jumps
+      if (distance > 100) {
+        // Determine rotation direction based on movement direction
+        const rotationDirection = endX > startX ? 1 : -1
+        
+        // Add rotation tween
+        this.tweens.add({
+          targets: this.player,
+          angle: rotationDirection * 360,
+          duration: duration,
+          onComplete: () => {
+            // Reset angle at the end
+            this.player.angle = 0
+          }
+        })
+      }
     }
   }
 
