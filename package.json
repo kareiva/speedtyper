@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "start": "vite --port 8080"
+    "start": "vite --port 8080 --no-open"
   },
   "dependencies": {
     "phaser": "^3.60.0",
