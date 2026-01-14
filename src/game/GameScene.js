@@ -16,6 +16,8 @@ class GameScene extends Phaser.Scene {
     this.nextWordBlocks = [] // Track the next word's blocks separately
     this.dancingLetter = null // Reference to the dancing letter
     this.lastCompletedBlock = null // Track last letter of completed word for fall reset
+    this.gameOverText = null // Game over text display
+    this.finalScoreText = null // Final score text display
     
     // Game metrics
     this.score = 0
@@ -62,13 +64,18 @@ class GameScene extends Phaser.Scene {
   create() {
     // Load word lists from files
     this.loadWordLists()
-    
+
     // Initialize game state
     this.score = 0
     this.timeLeft = 60
     this.nextWordPosition = 100
+    this.currentLetterIndex = 0
     this.letterBlocks = []
     this.nextWordBlocks = []
+    this.lastCompletedBlock = null
+    this.dancingLetter = null
+    this.gameOverText = null
+    this.finalScoreText = null
     
     // Create background
     this.createBackground()
@@ -412,6 +419,10 @@ class GameScene extends Phaser.Scene {
       if (this.score > 0) {
         this.score--
         this.scoreText.setText(`Score: ${this.score}`)
+        if (this.score === 0) {
+          this.endGame()
+          return
+        }
       }
 
       this.showFallPenalty(block.x, block.y - 60)
@@ -425,6 +436,10 @@ class GameScene extends Phaser.Scene {
       if (this.score > 0) {
         this.score--
         this.scoreText.setText(`Score: ${this.score}`)
+        if (this.score === 0) {
+          this.endGame()
+          return
+        }
       }
 
       this.showFallPenalty(this.lastCompletedBlock.x, this.lastCompletedBlock.y - 60)
@@ -707,7 +722,7 @@ class GameScene extends Phaser.Scene {
     this.removeDancingLetter();
     
     // Display game over message
-    const gameOverText = this.add.text(
+    this.gameOverText = this.add.text(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2,
       'Game Over!',
@@ -717,8 +732,8 @@ class GameScene extends Phaser.Scene {
         fill: '#ffffff'
       }
     ).setOrigin(0.5).setScrollFactor(0).setDepth(100)
-    
-    const finalScoreText = this.add.text(
+
+    this.finalScoreText = this.add.text(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2 + 60,
       `Final Score: ${this.score}`,
@@ -767,41 +782,8 @@ class GameScene extends Phaser.Scene {
   }
 
   restartGame() {
-    // Clear all existing platforms and letter blocks
-    this.platforms.clear(true, true);
-    this.letterBlocks.forEach(block => {
-      if (block.letterText) block.letterText.destroy();
-    });
-    this.letterBlocks = [];
-    this.nextWordBlocks = [];
-    
-    // Remove dancing letter
-    this.removeDancingLetter();
-    
-    // Reset game state
-    this.score = 0;
-    this.timeLeft = 60;
-    this.nextWordPosition = 100;
-    this.currentLetterIndex = 0;
-    this.lastCompletedBlock = null;
-    
-    // Update UI
-    this.scoreText.setText('Score: 0');
-    this.timerText.setText('Time: 60');
-    
-    // Recreate the starting cliff
-    this.createStartingCliff();
-    
-    // Reset player position
-    this.player.x = 50;
-    this.player.y = 200;
-    this.player.setVelocity(0, 0);
-    
-    // Add first word
-    this.addNewWord();
-    
-    // Re-enable input
-    this.input.keyboard.on('keydown', this.handleKeyDown, this);
+    // Restart the entire scene to clear all game objects
+    this.scene.restart();
   }
 
   // Create a dancing letter in the background
