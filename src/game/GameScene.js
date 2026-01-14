@@ -15,6 +15,7 @@ class GameScene extends Phaser.Scene {
     this.letterBlocks = []
     this.nextWordBlocks = [] // Track the next word's blocks separately
     this.dancingLetter = null // Reference to the dancing letter
+    this.lastCompletedBlock = null // Track last letter of completed word for fall reset
     
     // Game metrics
     this.score = 0
@@ -276,6 +277,10 @@ class GameScene extends Phaser.Scene {
       // Update score
       this.score++
       this.scoreText.setText(`Score: ${this.score}`)
+
+      // Show +1 animation at the letter block
+      const block = this.letterBlocks[this.currentLetterIndex - 1]
+      this.showScoreGain(block.x, block.y - 60)
       
       // Check if word is completed
       if (this.currentLetterIndex >= this.letterBlocks.length) {
@@ -388,27 +393,117 @@ class GameScene extends Phaser.Scene {
   }
 
   resetPlayerPosition() {
-    // Find the current or last completed letter block
-    const blockIndex = Math.max(0, this.currentLetterIndex - 1)
-    if (blockIndex < this.letterBlocks.length) {
+    // Place player on the last guessed letter, or current position if at start of new word
+    const blockIndex = this.currentLetterIndex - 1
+
+    if (blockIndex >= 0 && blockIndex < this.letterBlocks.length) {
+      // Player has guessed at least one letter in current word - place on last guessed letter
       const block = this.letterBlocks[blockIndex]
-      
-      // Reset player position
       this.player.x = block.x
       this.player.y = block.y - 40
       this.player.setVelocity(0, 0)
+
+      // Subtract 1 point from score (minimum 0)
+      if (this.score > 0) {
+        this.score--
+        this.scoreText.setText(`Score: ${this.score}`)
+      }
+
+      this.showFallPenalty(block.x, block.y - 60)
+    } else if (this.lastCompletedBlock) {
+      // At start of a new word - place on last letter of previous completed word
+      this.player.x = this.lastCompletedBlock.x
+      this.player.y = this.lastCompletedBlock.y - 40
+      this.player.setVelocity(0, 0)
+
+      // Subtract 1 point from score (minimum 0)
+      if (this.score > 0) {
+        this.score--
+        this.scoreText.setText(`Score: ${this.score}`)
+      }
+
+      this.showFallPenalty(this.lastCompletedBlock.x, this.lastCompletedBlock.y - 60)
+    } else {
+      // No letters exist yet - place back at starting cliff (no penalty)
+      this.player.x = 50
+      this.player.y = 260
+      this.player.setVelocity(0, 0)
     }
+  }
+
+  showFallPenalty(x, y) {
+    // Create "-1" text at the player's position
+    const penaltyText = this.add.text(x, y, '-1', {
+      fontFamily: 'Arial',
+      fontSize: '48px',
+      fill: '#ff4444',
+      stroke: '#000000',
+      strokeThickness: 4
+    })
+    penaltyText.setOrigin(0.5)
+    penaltyText.setDepth(100)
+
+    // Animate the text floating up and fading out
+    this.tweens.add({
+      targets: penaltyText,
+      y: y - 80,
+      alpha: 0,
+      scale: 1.5,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => {
+        penaltyText.destroy()
+      }
+    })
+
+    // Flash the player red briefly
+    this.player.setTint(0xff4444)
+    this.time.delayedCall(300, () => {
+      this.player.clearTint()
+    })
+  }
+
+  showScoreGain(x, y) {
+    // Create "+1" text at the letter block position
+    const gainText = this.add.text(x, y, '+1', {
+      fontFamily: 'Arial',
+      fontSize: '32px',
+      fill: '#44ff44',
+      stroke: '#000000',
+      strokeThickness: 3
+    })
+    gainText.setOrigin(0.5)
+    gainText.setDepth(100)
+
+    // Animate the text floating up and fading out
+    this.tweens.add({
+      targets: gainText,
+      y: y - 50,
+      alpha: 0,
+      scale: 1.3,
+      duration: 500,
+      ease: 'Power2',
+      onComplete: () => {
+        gainText.destroy()
+      }
+    })
   }
 
   moveToNextWord() {
     // The next word becomes the current word
     if (this.nextWordBlocks.length > 0) {
+      // Save the last letter block of the completed word for fall reset
+      if (this.letterBlocks.length > 0) {
+        const lastBlock = this.letterBlocks[this.letterBlocks.length - 1]
+        this.lastCompletedBlock = { x: lastBlock.x, y: lastBlock.y }
+      }
+
       // Clear current letter blocks array
       this.letterBlocks.forEach(block => {
         // Don't destroy the platforms or text, they stay visible
         // Just remove them from our tracking array
       });
-      
+
       // The next word blocks become the current word blocks
       this.letterBlocks = this.nextWordBlocks;
       this.nextWordBlocks = [];
@@ -683,6 +778,7 @@ class GameScene extends Phaser.Scene {
     this.timeLeft = 60;
     this.nextWordPosition = 100;
     this.currentLetterIndex = 0;
+    this.lastCompletedBlock = null;
     
     // Update UI
     this.scoreText.setText('Score: 0');
