@@ -78,6 +78,12 @@ onMounted(() => {
       width: 800,
       height: 600,
       parent: gameContainer.value,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 800,
+        height: 600
+      },
       physics: {
         default: 'arcade',
         arcade: {
@@ -136,10 +142,12 @@ onUnmounted(() => {
 
 <style scoped>
 .game-container {
-  position: relative;
-  width: 800px;
-  height: 600px;
-  margin: 0 auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #000;
 }
 
 .phaser-container {
