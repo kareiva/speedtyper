@@ -213,8 +213,13 @@ class GameScene extends Phaser.Scene {
       this.timerText.setText(`Time: ${Math.ceil(this.timeLeft)}`)
     }
     
-    // Check if player has fallen
-    if (this.player.y > 550) {
+    // At the very beginning, keep player affixed to starting cliff
+    if (this.currentLetterIndex === 0 && !this.lastCompletedBlock) {
+      this.player.x = 50
+      this.player.y = 260
+      this.player.setVelocity(0, 0)
+    } else if (this.player.y > 550) {
+      // Player has made progress and fallen - apply fall penalty
       this.resetPlayerPosition()
     }
     
