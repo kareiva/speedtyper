@@ -79,8 +79,8 @@ onMounted(() => {
       height: 600,
       parent: gameContainer.value,
       scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        mode: Phaser.Scale.HEIGHT_CONTROLS_WIDTH,
+        autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
         width: 800,
         height: 600
       },

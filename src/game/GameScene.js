@@ -65,6 +65,10 @@ class GameScene extends Phaser.Scene {
     // Load word lists from files
     this.loadWordLists()
 
+    // Initialize audio context for sound effects
+    this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    this.isMuted = false
+
     // Initialize game state
     this.score = 0
     this.timeLeft = 60
@@ -76,7 +80,7 @@ class GameScene extends Phaser.Scene {
     this.dancingLetter = null
     this.gameOverText = null
     this.finalScoreText = null
-    
+
     // Create background
     this.createBackground()
     
@@ -179,24 +183,39 @@ class GameScene extends Phaser.Scene {
       fill: '#ffffff'
     }).setScrollFactor(0).setDepth(100)
     
-    // Create language toggle button
-    const languageButton = this.add.text(700, 20, 'Language', {
+    // Create language toggle button (aligned to right edge with padding)
+    const languageButton = this.add.text(this.cameras.main.width - 20, 20, 'Language', {
       fontFamily: 'Arial',
       fontSize: '20px',
       fill: '#ffffff',
       backgroundColor: '#4CAF50',
       padding: { x: 10, y: 5 }
-    }).setScrollFactor(0).setDepth(100).setInteractive();
-    
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100).setInteractive();
+
     // Update button text based on current language
     languageButton.setText(`Language: ${this.currentLanguage === 'english' ? 'English' : 'Lithuanian'}`);
-    
+
     // Add click handler for language toggle via URL
     languageButton.on('pointerdown', () => {
       this.switchLanguageViaURL();
     });
-    
+
     this.languageButton = languageButton;
+
+    // Create mute toggle button (to the left of language button)
+    this.muteButton = this.add.text(this.cameras.main.width - 20 - languageButton.width - 10, 20, '🔊', {
+      fontFamily: 'Arial',
+      fontSize: '20px',
+      fill: '#ffffff',
+      backgroundColor: '#666666',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100).setInteractive();
+
+    // Add click handler for mute toggle
+    this.muteButton.on('pointerdown', () => {
+      this.isMuted = !this.isMuted
+      this.muteButton.setText(this.isMuted ? '🔇' : '🔊')
+    });
   }
 
   createStartingCliff() {
@@ -278,6 +297,9 @@ class GameScene extends Phaser.Scene {
     
     // Check if the pressed key matches the current letter
     if (key === expectedLetter) {
+      // Play correct sound
+      this.playCorrectSound()
+
       // Move player to the next letter block
       this.movePlayerToBlock(this.currentLetterIndex)
 
@@ -311,6 +333,9 @@ class GameScene extends Phaser.Scene {
   }
 
   handleIncorrectKey(key) {
+    // Play wrong sound
+    this.playWrongSound()
+
     // Subtract 1 point from score (minimum 0)
     if (this.score > 0) {
       this.score--
@@ -948,6 +973,46 @@ class GameScene extends Phaser.Scene {
       this.dancingLetter.destroy();
       this.dancingLetter = null;
     }
+  }
+
+  // Play a sound for correct letter
+  playCorrectSound() {
+    if (!this.audioContext || this.isMuted) return
+
+    const oscillator = this.audioContext.createOscillator()
+    const gainNode = this.audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(this.audioContext.destination)
+
+    oscillator.frequency.value = 880 // High pitch A note
+    oscillator.type = 'sine'
+
+    gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1)
+
+    oscillator.start(this.audioContext.currentTime)
+    oscillator.stop(this.audioContext.currentTime + 0.1)
+  }
+
+  // Play a sound for wrong letter
+  playWrongSound() {
+    if (!this.audioContext || this.isMuted) return
+
+    const oscillator = this.audioContext.createOscillator()
+    const gainNode = this.audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(this.audioContext.destination)
+
+    oscillator.frequency.value = 200 // Low buzzer frequency
+    oscillator.type = 'square'
+
+    gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15)
+
+    oscillator.start(this.audioContext.currentTime)
+    oscillator.stop(this.audioContext.currentTime + 0.15)
   }
 }
 
