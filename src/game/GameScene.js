@@ -101,8 +101,9 @@ class GameScene extends Phaser.Scene {
     // Set up keyboard input
     this.input.keyboard.on('keydown', this.handleKeyDown, this)
     
-    // Set up camera to follow player
+    // Set up camera to follow player, offset to position player at ~20% from left
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1)
+    this.cameras.main.setFollowOffset(-240, 0) // Shifts view right so player appears at ~20% of screen width
     this.cameras.main.setBounds(0, 0, 10000, 600)
     
     // Set world bounds
