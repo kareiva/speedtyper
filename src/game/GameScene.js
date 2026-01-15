@@ -280,13 +280,13 @@ class GameScene extends Phaser.Scene {
     if (key === expectedLetter) {
       // Move player to the next letter block
       this.movePlayerToBlock(this.currentLetterIndex)
-      
+
       // Highlight the completed letter
       this.highlightLetter(this.currentLetterIndex)
-      
+
       // Increment letter index
       this.currentLetterIndex++
-      
+
       // Update score
       this.score++
       this.scoreText.setText(`Score: ${this.score}`)
@@ -294,17 +294,95 @@ class GameScene extends Phaser.Scene {
       // Show +1 animation at the letter block
       const block = this.letterBlocks[this.currentLetterIndex - 1]
       this.showScoreGain(block.x, block.y - 60)
-      
+
       // Check if word is completed
       if (this.currentLetterIndex >= this.letterBlocks.length) {
         // Add bonus points for completing a word
         this.score += 5
         this.scoreText.setText(`Score: ${this.score}`)
-        
+
         // Remove dancing letter when word is completed
         this.removeDancingLetter();
       }
+    } else if (key.length === 1 && key.match(/[a-zA-Z]/)) {
+      // Incorrect letter pressed (only for actual letter keys)
+      this.handleIncorrectKey(key)
     }
+  }
+
+  handleIncorrectKey(key) {
+    // Subtract 1 point from score (minimum 0)
+    if (this.score > 0) {
+      this.score--
+      this.scoreText.setText(`Score: ${this.score}`)
+
+      // Check if score dropped to 0
+      if (this.score === 0) {
+        this.endGame()
+        return
+      }
+    }
+
+    // Show -1 animation at player position
+    this.showScorePenalty(this.player.x, this.player.y - 50)
+
+    // Show exploding incorrect letter animation
+    this.showExplodingLetter(key)
+  }
+
+  showScorePenalty(x, y) {
+    const penaltyText = this.add.text(x, y, '-1', {
+      fontFamily: 'Arial',
+      fontSize: '32px',
+      fill: '#ff4444',
+      stroke: '#000000',
+      strokeThickness: 3
+    })
+    penaltyText.setOrigin(0.5)
+    penaltyText.setDepth(100)
+
+    this.tweens.add({
+      targets: penaltyText,
+      y: y - 50,
+      alpha: 0,
+      scale: 1.3,
+      duration: 500,
+      ease: 'Power2',
+      onComplete: () => {
+        penaltyText.destroy()
+      }
+    })
+  }
+
+  showExplodingLetter(letter) {
+    // Show the incorrect letter in the center of the screen
+    const explodingLetter = this.add.text(
+      this.cameras.main.scrollX + this.cameras.main.width / 2,
+      this.cameras.main.height / 2,
+      letter.toUpperCase(),
+      {
+        fontFamily: 'Arial',
+        fontSize: '80px',
+        fill: '#ff0000',
+        stroke: '#000000',
+        strokeThickness: 4
+      }
+    )
+    explodingLetter.setOrigin(0.5)
+    explodingLetter.setDepth(100)
+
+    // Snappy explosion animation (0.2s)
+    this.tweens.add({
+      targets: explodingLetter,
+      scale: 3,
+      alpha: 0,
+      angle: Phaser.Math.Between(-30, 30),
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => {
+        explodingLetter.destroy()
+      }
+    })
   }
 
   movePlayerToBlock(index) {
