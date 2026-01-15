@@ -718,10 +718,16 @@ class GameScene extends Phaser.Scene {
   endGame() {
     // Stop handling input
     this.input.keyboard.removeAllListeners()
-    
+
     // Remove dancing letter
     this.removeDancingLetter();
-    
+
+    // Make player float randomly
+    this.player.body.setAllowGravity(false)
+    this.player.setCollideWorldBounds(false)
+    this.player.setVelocity(0, 0)
+    this.startPlayerFloating()
+
     // Display game over message
     this.gameOverText = this.add.text(
       this.cameras.main.width / 2,
@@ -744,9 +750,43 @@ class GameScene extends Phaser.Scene {
         fill: '#ffffff'
       }
     ).setOrigin(0.5).setScrollFactor(0).setDepth(100)
-    
+
     // Emit game over event
     this.events.emit('gameOver', { score: this.score })
+  }
+
+  startPlayerFloating() {
+    // Get camera view bounds for floating area
+    const camX = this.cameras.main.scrollX
+    const camY = this.cameras.main.scrollY
+    const width = this.cameras.main.width
+    const height = this.cameras.main.height
+
+    const floatToRandomPosition = () => {
+      // Random position within visible screen area with padding
+      const targetX = camX + Phaser.Math.Between(100, width - 100)
+      const targetY = Phaser.Math.Between(100, height - 100)
+
+      this.tweens.add({
+        targets: this.player,
+        x: targetX,
+        y: targetY,
+        duration: Phaser.Math.Between(1500, 3000),
+        ease: 'Sine.easeInOut',
+        onComplete: floatToRandomPosition
+      })
+    }
+
+    // Add gentle rotation while floating
+    this.tweens.add({
+      targets: this.player,
+      angle: 360,
+      duration: 4000,
+      repeat: -1,
+      ease: 'Linear'
+    })
+
+    floatToRandomPosition()
   }
 
   // Add a method to extend the background
