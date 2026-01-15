@@ -1,7 +1,20 @@
 <template>
-  <div class="game-container">
+  <div class="game-container" @touchend="focusMobileInput">
     <div ref="gameContainer" class="phaser-container"></div>
-    
+
+    <!-- Hidden input for mobile keyboard -->
+    <input
+      ref="mobileInput"
+      type="text"
+      class="mobile-input"
+      inputmode="text"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      @input="handleMobileInput"
+    />
+
     <div v-if="gameOver" class="game-over-overlay">
       <div class="game-over-content">
         <h2>Game Over!</h2>
@@ -19,10 +32,44 @@ import GameScene from '../game/GameScene';
 import Phaser from 'phaser';
 
 const gameContainer = ref(null);
+const mobileInput = ref(null);
 const game = ref(null);
 const score = ref(0);
 const gameOver = ref(false);
 let keydownHandler = null;
+
+// Check if device is touch-enabled
+function isTouchDevice() {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+// Focus the hidden input to bring up mobile keyboard
+function focusMobileInput() {
+  if (mobileInput.value && !gameOver.value) {
+    // Prevent scroll when focusing
+    mobileInput.value.focus({ preventScroll: true });
+    // Ensure we stay at top
+    window.scrollTo(0, 0);
+  }
+}
+
+// Handle mobile input events (only on touch devices to avoid double-firing with Phaser keyboard)
+function handleMobileInput(event) {
+  if (!isTouchDevice()) {
+    event.target.value = '';
+    return;
+  }
+
+  const inputValue = event.target.value;
+  if (inputValue.length > 0) {
+    const lastChar = inputValue.slice(-1);
+    const gameScene = getGameScene();
+    if (gameScene && gameScene.handleKeyDown) {
+      gameScene.handleKeyDown({ key: lastChar.toLowerCase() });
+    }
+    event.target.value = '';
+  }
+}
 
 // Function to create a keydown handler
 function createKeydownHandler() {
@@ -79,8 +126,8 @@ onMounted(() => {
       height: 600,
       parent: gameContainer.value,
       scale: {
-        mode: Phaser.Scale.HEIGHT_CONTROLS_WIDTH,
-        autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
         width: 800,
         height: 600
       },
@@ -148,6 +195,8 @@ onUnmounted(() => {
   width: 100vw;
   height: 100vh;
   background-color: #000;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .phaser-container {
@@ -195,5 +244,31 @@ onUnmounted(() => {
   margin-top: 1rem;
   font-size: 14px;
   color: #ccc;
+}
+
+.mobile-input {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  border: none;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  outline: none;
+  font-size: 16px;
+  z-index: -1;
+  opacity: 0;
+}
+
+/* Fit to screen on mobile */
+@media (max-width: 768px) {
+  .game-container {
+    height: 50vh;
+  }
+  .phaser-container {
+    height: 100%;
+  }
 }
 </style> 
